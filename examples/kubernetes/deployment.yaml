@@ -1,0 +1,76 @@
+# Generic sample — replace image digest and upstream URL for your environment.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: forward-auth-translator
+  namespace: ingress
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forward-auth-translator
+  namespace: ingress
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forward-auth-translator
+  template:
+    metadata:
+      labels:
+        app: forward-auth-translator
+    spec:
+      serviceAccountName: forward-auth-translator
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: translator
+          image: ghcr.io/rohankapoorcom/forward-auth-translator:main
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AUTHENTIK_OUTPOST_URL
+              value: http://authentik-outpost.identity.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forward-auth-translator
+  namespace: ingress
+spec:
+  type: ClusterIP
+  selector:
+    app: forward-auth-translator
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
