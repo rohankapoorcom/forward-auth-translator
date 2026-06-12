@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/rohankapoorcom/forward-auth-translator/internal/proxy"
 )
@@ -35,8 +36,17 @@ func main() {
 	mux.HandleFunc("/auth/traefik", handler.ServeAuth)
 	mux.HandleFunc("/healthz", proxy.ServeHealthz)
 
-	log.Printf("listening on %s; upstream %s", listenAddr, upstreamURL.String())
-	if err := http.ListenAndServe(listenAddr, mux); err != nil {
+	srv := &http.Server{
+		Addr:              listenAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	log.Printf("translator listening on %s", listenAddr)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 }
