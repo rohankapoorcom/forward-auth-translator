@@ -1,7 +1,9 @@
+// Command forward-auth-translator proxies Traefik forwardAuth subrequests to Authentik.
 package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,15 +14,21 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	listenAddr := envOrDefault("LISTEN_ADDR", ":8080")
 	upstreamRaw := os.Getenv("AUTHENTIK_OUTPOST_URL")
 	if upstreamRaw == "" {
-		log.Fatal("AUTHENTIK_OUTPOST_URL is required")
+		return errors.New("AUTHENTIK_OUTPOST_URL is required")
 	}
 
 	upstreamURL, err := parseUpstreamURL(upstreamRaw)
 	if err != nil {
-		log.Fatalf("invalid AUTHENTIK_OUTPOST_URL: %v", err)
+		return fmt.Errorf("invalid AUTHENTIK_OUTPOST_URL: %w", err)
 	}
 
 	handler, err := proxy.NewHandler(proxy.Config{
@@ -29,7 +37,7 @@ func main() {
 		ProbeSecretHeader: envOrDefault("PROBE_SECRET_HEADER", "Gatus-Probe-Client-Secret"),
 	})
 	if err != nil {
-		log.Fatalf("handler: %v", err)
+		return fmt.Errorf("handler: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -47,8 +55,9 @@ func main() {
 
 	log.Printf("translator listening on %s", listenAddr)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func envOrDefault(key, fallback string) string {
@@ -68,6 +77,9 @@ func parseUpstreamURL(raw string) (*url.URL, error) {
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, errors.New("URL scheme must be http or https")
+	}
+	if u.Path == "" || u.Path == "/" {
+		return nil, errors.New("URL must include the full outpost path")
 	}
 	return u, nil
 }

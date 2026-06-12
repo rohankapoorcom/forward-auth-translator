@@ -31,7 +31,7 @@ spec:
         fsGroup: 65532
       containers:
         - name: translator
-          image: ghcr.io/rohankapoorcom/forward-auth-translator:main
+          image: ghcr.io/rohankapoorcom/forward-auth-translator:<RELEASE_TAG_OR_DIGEST>
           imagePullPolicy: IfNotPresent
           env:
             - name: AUTHENTIK_OUTPOST_URL

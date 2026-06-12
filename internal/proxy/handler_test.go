@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -208,20 +206,6 @@ func TestHealthzReturns200(t *testing.T) {
 	}
 	if body := rr.Body.String(); body != "ok" {
 		t.Fatalf("body = %q, want ok", body)
-	}
-}
-
-func TestMissingUpstreamURLAtStartup(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
-		os.Setenv("AUTHENTIK_OUTPOST_URL", "")
-		os.Unsetenv("AUTHENTIK_OUTPOST_URL")
-		os.Exit(1)
-	}
-	cmd := exec.Command(os.Args[0], "-test.run=TestMissingUpstreamURLAtStartup")
-	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
-	err := cmd.Run()
-	if err == nil {
-		t.Fatal("expected non-zero exit when AUTHENTIK_OUTPOST_URL unset")
 	}
 }
 
